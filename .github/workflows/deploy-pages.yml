@@ -65,6 +65,54 @@ jobs:
         if: steps.fetch_weight.outcome == 'failure'
         run: echo "::warning::Failed to fetch latest weight from Eufy. Deploying with existing public/data/weight.json."
 
+      - name: Build #yasero_dev URL data from repository variable
+        env:
+          YASERO_POST_URLS: ${{ vars.YASERO_POST_URLS }}
+        run: |
+          set -euo pipefail
+          mkdir -p public/data
+          python - <<'PY'
+          import json
+          import os
+          import re
+
+          raw = (os.getenv("YASERO_POST_URLS") or "").strip()
+          if not raw:
+              raw = "[]"
+
+          try:
+              posts = json.loads(raw)
+          except json.JSONDecodeError:
+              print("::warning::YASERO_POST_URLS is not valid JSON. Falling back to empty list.")
+              posts = []
+
+          if not isinstance(posts, list):
+              print("::warning::YASERO_POST_URLS must be a JSON array. Falling back to empty list.")
+              posts = []
+
+          pattern = re.compile(r"^https://(?:x|twitter)\.com/[^/]+/status/\d+$", re.IGNORECASE)
+          cleaned = []
+          seen = set()
+          for item in posts:
+              if not isinstance(item, str):
+                  continue
+              value = item.strip()
+              value = re.sub(r"^https://twitter\.com/", "https://x.com/", value, flags=re.IGNORECASE)
+              value = value.split("?", 1)[0]
+              if not pattern.match(value):
+                  continue
+              if value in seen:
+                  continue
+              seen.add(value)
+              cleaned.append(value)
+
+          with open("public/data/yasero_dev_posts.json", "w", encoding="utf-8") as f:
+              json.dump({"posts": cleaned}, f, ensure_ascii=False, indent=2)
+              f.write("\n")
+
+          print(f"Generated public/data/yasero_dev_posts.json with {len(cleaned)} URL(s).")
+          PY
+
       - name: Setup Pages
         uses: actions/configure-pages@v5
 

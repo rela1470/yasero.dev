@@ -24,3 +24,14 @@ MyFitnessPal の代わりに、GitHub Actions が eufy の非公開 API から�
 - ワークフローは 24 時間ごとに定期実行されます（UTC 00:15）。
 - 取得前に公開中 `weight.json` を復元するため、取得失敗時は前回成功値を維持できます。
 - API 仕様変更が起きる可能性があるため、失敗時は Actions ログを確認してください。
+
+## #yasero_dev 投稿URLの運用（Git履歴を増やさない）
+`#yasero_dev` の投稿URLは `public/data/yasero_dev_posts.json` をGitで直接更新せず、Repository Variable で管理します。
+
+1. `Settings` -> `Secrets and variables` -> `Actions` -> `Variables` で `YASERO_POST_URLS` を作成（初期値 `[]`）
+2. `Actions` の `Add #yasero_dev post URL` を手動実行し、`post_url` に `https://x.com/.../status/...` を入力
+3. デプロイ時に `YASERO_POST_URLS` から `public/data/yasero_dev_posts.json` を生成して公開
+
+補足:
+- `Add #yasero_dev post URL` は URL 重複を自動除去し、新しいURLを先頭に追加します。
+- `twitter.com` URLを入力した場合も、保存時に `x.com` 形式へ正規化されます。
