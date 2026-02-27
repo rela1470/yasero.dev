@@ -1,0 +1,88 @@
+name: Add #yasero_dev post URL
+
+on:
+  workflow_dispatch:
+    inputs:
+      post_url:
+        description: "X/Twitter post URL (https://x.com/.../status/... or https://twitter.com/.../status/...)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  add-post-url:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Add URL to data file
+        env:
+          POST_URL: ${{ inputs.post_url }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          import os
+          import re
+          from pathlib import Path
+
+          data_path = Path("public/data/yasero_dev_posts.json")
+          raw_url = os.environ["POST_URL"].strip()
+
+          pattern = re.compile(r"^https://(?:x|twitter)\.com/[^/]+/status/\d+(?:\?.*)?$", re.IGNORECASE)
+          if not pattern.match(raw_url):
+              raise SystemExit(f"Invalid post URL format: {raw_url}")
+
+          canonical_url = re.sub(r"^https://twitter\.com/", "https://x.com/", raw_url, flags=re.IGNORECASE)
+          canonical_url = canonical_url.split("?", 1)[0]
+
+          if data_path.exists():
+              with data_path.open("r", encoding="utf-8") as f:
+                  data = json.load(f)
+          else:
+              data = {"posts": []}
+
+          posts = data.get("posts")
+          if not isinstance(posts, list):
+              posts = []
+
+          # Keep only strings and remove duplicates while preserving order.
+          cleaned = []
+          seen = set()
+          for item in posts:
+              if not isinstance(item, str):
+                  continue
+              url = item.strip()
+              if not url or url in seen:
+                  continue
+              seen.add(url)
+              cleaned.append(url)
+
+          if canonical_url in seen:
+              print("URL already exists. No changes needed.")
+              posts = cleaned
+          else:
+              posts = [canonical_url] + cleaned
+              print(f"Added URL: {canonical_url}")
+
+          output = {"posts": posts}
+          with data_path.open("w", encoding="utf-8") as f:
+              json.dump(output, f, ensure_ascii=False, indent=2)
+              f.write("\n")
+          PY
+
+      - name: Commit and push
+        run: |
+          set -euo pipefail
+          if git diff --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/data/yasero_dev_posts.json
+          git commit -m "chore: add #yasero_dev post URL"
+          git push

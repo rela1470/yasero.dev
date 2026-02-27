@@ -52,15 +52,14 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
 						<hr />
 						
-						<h2>#yasero_dev</h2>
-							<a href="https://twitter.com/intent/tweet?button_hashtag=yasero_dev&ref_src=twsrc%5Etfw" class="twitter-hashtag-button" data-size="large" data-show-count="false">Tweet #yasero_dev</a><script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
-							<a class="twitter-timeline" data-partner="tweetdeck" href="https://twitter.com/rela1470/timelines/1101338583661596674?ref_src=twsrc%5Etfw">#yasero_dev - Curated tweets by rela1470</a> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
-						
-						<h2>kimi mo yasero!</h2>
-							<ul class="actions special">
-								<li><a href="https://goo.gl/forms/w0ogox883SqxF6rg1" class="button">Get Started</a></li>
-							</ul>
-						</form>
+								<h2>#yasero_dev</h2>
+									<ul class="actions special">
+										<li><a href="https://twitter.com/intent/tweet?hashtags=yasero_dev" class="button">Post with #yasero_dev</a></li>
+									</ul>
+									<p style="font-size:0.8em; margin-top:-1em;">Recent posts by <a href="https://x.com/rela1470">rela1470</a> with <code>#yasero_dev</code>:</p>
+									<ul id="yasero-posts" class="alt">
+										<li>Loading posts...</li>
+									</ul>
 						<hr />
 						<footer>
 							<ul class="icons">
@@ -82,8 +81,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 			</div>
 
 			<!-- Scripts -->
-				<script>
-						(function() {
+					<script>
+							(function() {
 							function formatTime(iso) {
 								if (!iso) return 'unknown';
 								var date = new Date(iso);
@@ -154,10 +153,63 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 							.catch(function() {
 								setFallback('Failed to load weight data');
 							});
-					})();
-				</script>
-				<script>
-					if ('addEventListener' in window) {
+						})();
+					</script>
+					<script>
+						(function() {
+							var postsList = document.getElementById('yasero-posts');
+							if (!postsList) return;
+
+							function normalizeUrl(url) {
+								if (typeof url !== 'string') return null;
+								var trimmed = url.trim();
+								if (!trimmed) return null;
+								if (!/^https?:\/\//i.test(trimmed)) return null;
+								return trimmed;
+							}
+
+							function renderPosts(posts) {
+								postsList.innerHTML = '';
+								if (!posts.length) {
+									postsList.innerHTML = '<li>No posts yet.</li>';
+									return;
+								}
+
+								for (var i = 0; i < posts.length; i++) {
+									var url = normalizeUrl(posts[i]);
+									if (!url) continue;
+
+									var li = document.createElement('li');
+									var a = document.createElement('a');
+									a.href = url;
+									a.textContent = url;
+									a.target = '_blank';
+									a.rel = 'noopener noreferrer';
+									li.appendChild(a);
+									postsList.appendChild(li);
+								}
+
+								if (!postsList.children.length) {
+									postsList.innerHTML = '<li>No posts yet.</li>';
+								}
+							}
+
+							fetch('data/yasero_dev_posts.json?ts=' + Date.now(), { cache: 'no-store' })
+								.then(function(response) {
+									if (!response.ok) throw new Error('HTTP ' + response.status);
+									return response.json();
+								})
+								.then(function(data) {
+									var posts = Array.isArray(data.posts) ? data.posts : [];
+									renderPosts(posts);
+								})
+								.catch(function() {
+									postsList.innerHTML = '<li>Failed to load posts.</li>';
+								});
+						})();
+					</script>
+					<script>
+						if ('addEventListener' in window) {
 						window.addEventListener('load', function() { document.body.className = document.body.className.replace(/\bis-preload\b/, ''); });
 					document.body.className += (navigator.userAgent.match(/(MSIE|rv:11\.0)/) ? ' is-ie' : '');
 				}
