@@ -57,9 +57,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 										<li><a href="https://twitter.com/intent/tweet?hashtags=yasero_dev" class="button">Post with #yasero_dev</a></li>
 									</ul>
 									<p style="font-size:0.8em; margin-top:-1em;">Recent posts by <a href="https://x.com/rela1470">rela1470</a> with <code>#yasero_dev</code>:</p>
-									<ul id="yasero-posts" class="alt">
-										<li>Loading posts...</li>
-									</ul>
+									<div id="yasero-posts">
+										<p>Loading posts...</p>
+									</div>
 						<hr />
 						<footer>
 							<ul class="icons">
@@ -157,41 +157,125 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 					</script>
 					<script>
 						(function() {
-							var postsList = document.getElementById('yasero-posts');
-							if (!postsList) return;
+							var postsContainer = document.getElementById('yasero-posts');
+							if (!postsContainer) return;
 
 							function normalizeUrl(url) {
 								if (typeof url !== 'string') return null;
 								var trimmed = url.trim();
 								if (!trimmed) return null;
-								if (!/^https?:\/\//i.test(trimmed)) return null;
-								return trimmed;
+								var match = trimmed.match(/^https:\/\/(?:x|twitter)\.com\/([^/]+)\/status\/(\d+)(?:\?.*)?$/i);
+								if (!match) return null;
+								return 'https://twitter.com/' + match[1] + '/status/' + match[2];
 							}
 
-							function renderPosts(posts) {
-								postsList.innerHTML = '';
-								if (!posts.length) {
-									postsList.innerHTML = '<li>No posts yet.</li>';
-									return;
-								}
+							function setMessage(message) {
+								postsContainer.innerHTML = '';
+								var p = document.createElement('p');
+								p.textContent = message;
+								postsContainer.appendChild(p);
+							}
 
-								for (var i = 0; i < posts.length; i++) {
-									var url = normalizeUrl(posts[i]);
-									if (!url) continue;
+							function loadTwitterWidgets() {
+								return new Promise(function(resolve, reject) {
+									if (window.twttr && window.twttr.widgets && typeof window.twttr.widgets.load === 'function') {
+										resolve(window.twttr);
+										return;
+									}
 
+									var existing = document.getElementById('twitter-wjs');
+									if (existing) {
+										var waitCount = 0;
+										var timer = setInterval(function() {
+											waitCount += 1;
+											if (window.twttr && window.twttr.widgets && typeof window.twttr.widgets.load === 'function') {
+												clearInterval(timer);
+												resolve(window.twttr);
+												return;
+											}
+											if (waitCount > 50) {
+												clearInterval(timer);
+												reject(new Error('twitter widgets timeout'));
+											}
+										}, 100);
+										return;
+									}
+
+									var script = document.createElement('script');
+									script.id = 'twitter-wjs';
+									script.src = 'https://platform.twitter.com/widgets.js';
+									script.async = true;
+									script.onload = function() {
+										resolve(window.twttr);
+									};
+									script.onerror = function() {
+										reject(new Error('twitter widgets load error'));
+									};
+									document.head.appendChild(script);
+								});
+							}
+
+							function renderLinksFallback(urls) {
+								postsContainer.innerHTML = '';
+								var ul = document.createElement('ul');
+								ul.className = 'alt';
+
+								for (var i = 0; i < urls.length; i++) {
 									var li = document.createElement('li');
 									var a = document.createElement('a');
-									a.href = url;
-									a.textContent = url;
+									a.href = urls[i];
+									a.textContent = urls[i];
 									a.target = '_blank';
 									a.rel = 'noopener noreferrer';
 									li.appendChild(a);
-									postsList.appendChild(li);
+									ul.appendChild(li);
 								}
 
-								if (!postsList.children.length) {
-									postsList.innerHTML = '<li>No posts yet.</li>';
+								if (!ul.children.length) {
+									setMessage('No posts yet.');
+									return;
 								}
+								postsContainer.appendChild(ul);
+							}
+
+							function renderPosts(posts) {
+								postsContainer.innerHTML = '';
+								if (!posts.length) {
+									setMessage('No posts yet.');
+									return;
+								}
+
+								var urls = [];
+								for (var i = 0; i < posts.length; i++) {
+									var url = normalizeUrl(posts[i]);
+									if (!url) continue;
+									urls.push(url);
+
+									var a = document.createElement('a');
+									a.href = url;
+									a.textContent = ' ';
+
+									var blockquote = document.createElement('blockquote');
+									blockquote.className = 'twitter-tweet';
+									blockquote.setAttribute('data-conversation', 'none');
+									blockquote.appendChild(a);
+									postsContainer.appendChild(blockquote);
+								}
+
+								if (!postsContainer.children.length) {
+									setMessage('No posts yet.');
+									return;
+								}
+
+								loadTwitterWidgets()
+									.then(function() {
+										if (window.twttr && window.twttr.widgets) {
+											window.twttr.widgets.load(postsContainer);
+										}
+									})
+									.catch(function() {
+										renderLinksFallback(urls);
+									});
 							}
 
 							fetch('data/yasero_dev_posts.json?ts=' + Date.now(), { cache: 'no-store' })
@@ -204,7 +288,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 									renderPosts(posts);
 								})
 								.catch(function() {
-									postsList.innerHTML = '<li>Failed to load posts.</li>';
+									setMessage('Failed to load posts.');
 								});
 						})();
 					</script>
