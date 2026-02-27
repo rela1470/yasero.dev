@@ -18,13 +18,32 @@ jobs:
     steps:
       - name: Update repository variable
         uses: actions/github-script@v7
+        env:
+          ACTIONS_VARIABLES_TOKEN: ${{ secrets.ACTIONS_VARIABLES_TOKEN }}
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.ACTIONS_VARIABLES_TOKEN || secrets.GITHUB_TOKEN }}
           script: |
             const owner = context.repo.owner;
             const repo = context.repo.repo;
             const variableName = "YASERO_POST_URLS";
             const inputUrl = `${{ inputs.post_url }}`.trim();
+            const tokenSource = process.env.ACTIONS_VARIABLES_TOKEN ? "ACTIONS_VARIABLES_TOKEN" : "GITHUB_TOKEN";
+
+            function failIfPermissionError(error, operation) {
+              if (error && error.status === 403) {
+                core.setFailed(
+                  [
+                    `Permission denied while trying to ${operation}.`,
+                    "GitHub returned: Resource not accessible by integration.",
+                    `Token in use: ${tokenSource}.`,
+                    "Fix: set Repository Secret ACTIONS_VARIABLES_TOKEN to a PAT/FGPAT that can read and write repository variables.",
+                    "Also verify repository Actions setting allows read and write permissions for workflows."
+                  ].join(" ")
+                );
+                return true;
+              }
+              return false;
+            }
 
             const urlPattern = /^https:\/\/(?:x|twitter)\.com\/[^/]+\/status\/\d+(?:\?.*)?$/i;
             if (!urlPattern.test(inputUrl)) {
@@ -45,6 +64,7 @@ jobs:
               });
               currentValue = response.data.value || "[]";
             } catch (error) {
+              if (failIfPermissionError(error, `read repository variable ${variableName}`)) return;
               if (error.status !== 404) {
                 throw error;
               }
@@ -88,14 +108,20 @@ jobs:
                 core.info(`Created ${variableName} with ${nextPosts.length} URL(s).`);
                 return;
               } catch (error) {
+                if (failIfPermissionError(error, `create repository variable ${variableName}`)) return;
                 if (error.status !== 409) throw error;
               }
             }
 
-            await github.rest.actions.updateRepoVariable({
-              owner,
-              repo,
-              name: variableName,
-              value: nextValue,
-            });
+            try {
+              await github.rest.actions.updateRepoVariable({
+                owner,
+                repo,
+                name: variableName,
+                value: nextValue,
+              });
+            } catch (error) {
+              if (failIfPermissionError(error, `update repository variable ${variableName}`)) return;
+              throw error;
+            }
             core.info(`Updated ${variableName}. Total URLs: ${nextPosts.length}`);

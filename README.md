@@ -29,9 +29,12 @@ MyFitnessPal の代わりに、GitHub Actions が eufy の非公開 API から�
 `#yasero_dev` の投稿URLは `public/data/yasero_dev_posts.json` をGitで直接更新せず、Repository Variable で管理します。
 
 1. `Settings` -> `Secrets and variables` -> `Actions` -> `Variables` で `YASERO_POST_URLS` を作成（初期値 `[]`）
-2. `Actions` の `Add #yasero_dev post URL` を手動実行し、`post_url` に `https://x.com/.../status/...` を入力
-3. デプロイ時に `YASERO_POST_URLS` から `public/data/yasero_dev_posts.json` を生成して公開
+2. (推奨) `Settings` -> `Secrets and variables` -> `Actions` -> `Secrets` で `ACTIONS_VARIABLES_TOKEN` を作成  
+   値は `Repository Variables` を読み書き可能な PAT/FGPAT（Fine-grained の場合は対象リポジトリに対して Variables の read/write 権限）を指定
+3. `Actions` の `Add #yasero_dev post URL` を手動実行し、`post_url` に `https://x.com/.../status/...` を入力
+4. デプロイ時に `YASERO_POST_URLS` から `public/data/yasero_dev_posts.json` を生成して公開
 
 補足:
 - `Add #yasero_dev post URL` は URL 重複を自動除去し、新しいURLを先頭に追加します。
 - `twitter.com` URLを入力した場合も、保存時に `x.com` 形式へ正規化されます。
+- `Resource not accessible by integration` が出る場合は、上記 `ACTIONS_VARIABLES_TOKEN` と `Actions` の workflow permission（Read and write）を確認してください。
