@@ -1,0 +1,9 @@
+{
+  "source": "bootstrap",
+  "weightKg": null,
+  "targetWeightKg": 55.0,
+  "initialWeightKg": null,
+  "measuredAt": null,
+  "updatedAt": null,
+  "status": "unconfigured"
+}

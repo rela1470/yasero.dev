@@ -36,9 +36,18 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 						<header>
 							<h1>yasero.dev</h1>
 							<span class="avatar"><img src="https://www.gravatar.com/avatar/5ac788930fd05db793e9184daf312a80?s=200" alt="" /></span>
-							<h1>Jun Watanabe</h1>
-							<h2>rela1470</h2>
-							<p><a href="http://www.myfitnesspal.com/weight-loss-ticker"><img border="0" src="https://www.myfitnesspal.com/ticker/show/6725/7699/167257699.png" width="100%" /></a></p>
+								<h1>Jun Watanabe</h1>
+								<h2>rela1470</h2>
+									<div id="weight-widget" style="text-align:center;">
+										<p style="margin: 0 0 0.35em 0; font-size: 0.8em; letter-spacing: 0.12em; text-transform: uppercase;">Weight Progress</p>
+										<p id="weight-value" style="margin: 0; font-size: 2em; font-weight: 700;">--.- kg</p>
+										<p id="weight-goal" style="margin: 0.3em 0 0 0; font-size: 0.85em;">Target: --.- kg / Remaining: --.- kg</p>
+										<div style="margin: 0.8em auto 0.2em auto; width: 100%; max-width: 360px; background: rgba(255,255,255,0.15); border-radius: 999px; height: 10px; overflow: hidden;">
+											<div id="weight-progress-bar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #28a745, #b7e778); transition: width 0.5s ease;"></div>
+										</div>
+										<p id="weight-progress-label" style="margin: 0; font-size: 0.75em;">Progress: --%</p>
+										<p id="weight-meta" style="margin: 0.6em 0 0 0; font-size: 0.75em;">Loading...</p>
+									</div>
 						</header>
 
 						<hr />
@@ -72,10 +81,63 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
 			</div>
 
-		<!-- Scripts -->
-			<script>
-				if ('addEventListener' in window) {
-					window.addEventListener('load', function() { document.body.className = document.body.className.replace(/\bis-preload\b/, ''); });
+			<!-- Scripts -->
+				<script>
+					(function() {
+						function formatTime(iso) {
+							if (!iso) return 'unknown';
+							var date = new Date(iso);
+							if (isNaN(date.getTime())) return 'unknown';
+							return date.toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' });
+						}
+
+						function setFallback(message) {
+							document.getElementById('weight-value').textContent = '--.- kg';
+							document.getElementById('weight-goal').textContent = 'Target: --.- kg / Remaining: --.- kg';
+							document.getElementById('weight-progress-label').textContent = 'Progress: --%';
+							document.getElementById('weight-progress-bar').style.width = '0%';
+							document.getElementById('weight-meta').textContent = message;
+						}
+
+						function toNumber(value) {
+							if (typeof value === 'number' && !isNaN(value)) return value;
+							return null;
+						}
+
+						fetch('data/weight.json?ts=' + Date.now(), { cache: 'no-store' })
+							.then(function(response) {
+								if (!response.ok) throw new Error('HTTP ' + response.status);
+								return response.json();
+							})
+							.then(function(data) {
+								if (typeof data.weightKg !== 'number') {
+									setFallback('Weight data not available');
+									return;
+								}
+								var current = data.weightKg;
+								var target = toNumber(data.targetWeightKg) || 55.0;
+								var initial = toNumber(data.initialWeightKg) || current;
+								var remaining = Math.max(current - target, 0);
+								var denominator = initial - target;
+								var progress = denominator > 0 ? ((initial - current) / denominator) * 100 : (current <= target ? 100 : 0);
+								progress = Math.max(0, Math.min(100, progress));
+
+								document.getElementById('weight-value').textContent = current.toFixed(1) + ' kg';
+								document.getElementById('weight-goal').textContent = 'Target: ' + target.toFixed(1) + ' kg / Remaining: ' + remaining.toFixed(1) + ' kg';
+								document.getElementById('weight-progress-label').textContent = 'Progress: ' + progress.toFixed(1) + '%';
+								document.getElementById('weight-progress-bar').style.width = progress.toFixed(1) + '%';
+								var measured = formatTime(data.measuredAt);
+								var updated = formatTime(data.updatedAt);
+								document.getElementById('weight-meta').textContent = 'Measured: ' + measured + ' / Updated: ' + updated;
+							})
+							.catch(function() {
+								setFallback('Failed to load weight data');
+							});
+					})();
+				</script>
+				<script>
+					if ('addEventListener' in window) {
+						window.addEventListener('load', function() { document.body.className = document.body.className.replace(/\bis-preload\b/, ''); });
 					document.body.className += (navigator.userAgent.match(/(MSIE|rv:11\.0)/) ? ' is-ie' : '');
 				}
 			</script>

@@ -5,6 +5,8 @@ on:
     branches:
       - main
       - master
+  schedule:
+    - cron: "15 0 * * *"
   workflow_dispatch:
 
 permissions:
@@ -25,6 +27,43 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Restore previous published weight snapshot
+        env:
+          EUFY_PREVIOUS_WEIGHT_URL: ${{ vars.EUFY_PREVIOUS_WEIGHT_URL }}
+        run: |
+          set -euo pipefail
+          mkdir -p public/data
+          URL="${EUFY_PREVIOUS_WEIGHT_URL:-https://yasero.dev/data/weight.json}"
+          if curl -fsSL --retry 2 --connect-timeout 10 "$URL" -o /tmp/weight.json; then
+            python -m json.tool /tmp/weight.json >/dev/null
+            cp /tmp/weight.json public/data/weight.json
+            echo "Restored previous weight snapshot from $URL"
+          else
+            echo "::warning::Could not restore previous weight snapshot from $URL. Using repository copy."
+          fi
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Fetch latest weight from Eufy
+        id: fetch_weight
+        continue-on-error: true
+        env:
+          EUFY_EMAIL: ${{ secrets.EUFY_EMAIL }}
+          EUFY_PASSWORD: ${{ secrets.EUFY_PASSWORD }}
+          EUFY_CLIENT_ID: ${{ secrets.EUFY_CLIENT_ID }}
+          EUFY_CLIENT_SECRET: ${{ secrets.EUFY_CLIENT_SECRET }}
+          EUFY_DEVICE_ID: ${{ secrets.EUFY_DEVICE_ID }}
+          TARGET_WEIGHT_KG: ${{ vars.TARGET_WEIGHT_KG }}
+          WEIGHT_OUTPUT_PATH: public/data/weight.json
+        run: python scripts/fetch_eufy_weight.py
+
+      - name: Warn if Eufy fetch failed
+        if: steps.fetch_weight.outcome == 'failure'
+        run: echo "::warning::Failed to fetch latest weight from Eufy. Deploying with existing public/data/weight.json."
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
