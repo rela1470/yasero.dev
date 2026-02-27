@@ -83,13 +83,21 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
 			<!-- Scripts -->
 				<script>
-					(function() {
-						function formatTime(iso) {
-							if (!iso) return 'unknown';
-							var date = new Date(iso);
-							if (isNaN(date.getTime())) return 'unknown';
-							return date.toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' });
-						}
+						(function() {
+							function formatTime(iso) {
+								if (!iso) return 'unknown';
+								var date = new Date(iso);
+								if (isNaN(date.getTime())) return 'unknown';
+								return date.toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' });
+							}
+
+							function formatMeasuredTime(measuredIso, updatedIso) {
+								var measured = formatTime(measuredIso);
+								if (measured !== 'unknown') return measured;
+								var updated = formatTime(updatedIso);
+								if (updated !== 'unknown') return updated + ' (fallback)';
+								return 'unknown';
+							}
 
 						function setFallback(message) {
 							document.getElementById('weight-value').textContent = '--.- kg';
@@ -109,27 +117,40 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 								if (!response.ok) throw new Error('HTTP ' + response.status);
 								return response.json();
 							})
-							.then(function(data) {
-								if (typeof data.weightKg !== 'number') {
-									setFallback('Weight data not available');
-									return;
-								}
-								var current = data.weightKg;
-								var target = toNumber(data.targetWeightKg) || 55.0;
-								var initial = toNumber(data.initialWeightKg) || current;
-								var remaining = Math.max(current - target, 0);
-								var denominator = initial - target;
-								var progress = denominator > 0 ? ((initial - current) / denominator) * 100 : (current <= target ? 100 : 0);
-								progress = Math.max(0, Math.min(100, progress));
+								.then(function(data) {
+									if (data.status === 'unconfigured') {
+										setFallback('Weight source is not configured yet');
+										return;
+									}
+									if (typeof data.weightKg !== 'number') {
+										setFallback('Weight data not available');
+										return;
+									}
+									var current = data.weightKg;
+									var target = toNumber(data.targetWeightKg) || 55.0;
+									var initial = toNumber(data.initialWeightKg);
+									var hasInitial = initial !== null;
+									var remaining = Math.max(current - target, 0);
+									var progress = null;
+									if (hasInitial) {
+										var denominator = initial - target;
+										progress = denominator > 0 ? ((initial - current) / denominator) * 100 : (current <= target ? 100 : 0);
+										progress = Math.max(0, Math.min(100, progress));
+									}
 
-								document.getElementById('weight-value').textContent = current.toFixed(1) + ' kg';
-								document.getElementById('weight-goal').textContent = 'Target: ' + target.toFixed(1) + ' kg / Remaining: ' + remaining.toFixed(1) + ' kg';
-								document.getElementById('weight-progress-label').textContent = 'Progress: ' + progress.toFixed(1) + '%';
-								document.getElementById('weight-progress-bar').style.width = progress.toFixed(1) + '%';
-								var measured = formatTime(data.measuredAt);
-								var updated = formatTime(data.updatedAt);
-								document.getElementById('weight-meta').textContent = 'Measured: ' + measured + ' / Updated: ' + updated;
-							})
+									document.getElementById('weight-value').textContent = current.toFixed(1) + ' kg';
+									document.getElementById('weight-goal').textContent = 'Target: ' + target.toFixed(1) + ' kg / Remaining: ' + remaining.toFixed(1) + ' kg';
+									if (progress === null) {
+										document.getElementById('weight-progress-label').textContent = 'Progress: --%';
+										document.getElementById('weight-progress-bar').style.width = '0%';
+									} else {
+										document.getElementById('weight-progress-label').textContent = 'Progress: ' + progress.toFixed(1) + '%';
+										document.getElementById('weight-progress-bar').style.width = progress.toFixed(1) + '%';
+									}
+									var measured = formatMeasuredTime(data.measuredAt, data.updatedAt);
+									var updated = formatTime(data.updatedAt);
+									document.getElementById('weight-meta').textContent = 'Measured: ' + measured + ' / Updated: ' + updated;
+								})
 							.catch(function() {
 								setFallback('Failed to load weight data');
 							});

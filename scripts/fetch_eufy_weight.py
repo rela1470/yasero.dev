@@ -108,7 +108,7 @@ def _parse_time(value: Any) -> str | None:
 
 def _to_kg(weight: float, unit: str | None) -> float:
     if not unit:
-        return weight
+        return _guess_scaled_kg(weight)
 
     u = unit.strip().lower()
     if u in {"kg", "kgs", "kilogram", "kilograms"}:
@@ -119,7 +119,20 @@ def _to_kg(weight: float, unit: str | None) -> float:
         return weight / 1000.0
     if u in {"jin"}:
         return weight * 0.5
-    return weight
+    # Some Eufy payloads encode weight as scaled integers without a clear unit.
+    # Example: 717 means 71.7kg.
+    return _guess_scaled_kg(weight)
+
+
+def _guess_scaled_kg(raw_weight: float) -> float:
+    candidates = [raw_weight, raw_weight / 10.0, raw_weight / 100.0]
+    plausible = [v for v in candidates if 20.0 <= v <= 300.0]
+    if plausible:
+        # Prefer deka-scaling when raw value is implausibly high but /10 is plausible.
+        if raw_weight >= 300.0 and 20.0 <= raw_weight / 10.0 <= 300.0:
+            return raw_weight / 10.0
+        return plausible[0]
+    return raw_weight
 
 
 def _pick_scale_device(devices_json: Any) -> dict[str, Any]:
