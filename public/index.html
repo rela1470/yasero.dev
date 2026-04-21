@@ -71,6 +71,22 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 						</footer>
 					</section>
 
+				<!-- Ad Mock -->
+					<aside id="ad-panel" aria-label="Sponsored">
+						<p class="eyebrow">Sponsored</p>
+						<a href="#" class="ad-card" id="ad-link" target="_blank" rel="sponsored noopener noreferrer">
+							<div class="ad-media" id="ad-media" hidden>
+								<img id="ad-image" src="" alt="" width="300" height="250" />
+							</div>
+							<div class="ad-text" id="ad-text">
+								<p class="ad-title" id="ad-title">Sponsored Link</p>
+								<p class="ad-copy" id="ad-copy">Loading sponsor information...</p>
+								<span class="ad-cta" id="ad-cta">Learn More</span>
+							</div>
+						</a>
+						<img id="ad-pixel" src="" alt="" width="1" height="1" hidden />
+					</aside>
+
 				<!-- Footer -->
 					<footer id="footer">
 						<ul class="copyright">
@@ -155,6 +171,97 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 							});
 						})();
 					</script>
+						<script>
+							(function() {
+								var adPanel = document.getElementById('ad-panel');
+								var adLink = document.getElementById('ad-link');
+								var adMedia = document.getElementById('ad-media');
+								var adImage = document.getElementById('ad-image');
+								var adText = document.getElementById('ad-text');
+								var adTitle = document.getElementById('ad-title');
+								var adCopy = document.getElementById('ad-copy');
+								var adCta = document.getElementById('ad-cta');
+								var adPixel = document.getElementById('ad-pixel');
+
+								if (!adPanel || !adLink || !adMedia || !adImage || !adText || !adTitle || !adCopy || !adCta || !adPixel) return;
+
+								function pickWeighted(items) {
+									var totalWeight = 0;
+									for (var i = 0; i < items.length; i++) {
+										var itemWeight = typeof items[i].weight === 'number' && items[i].weight > 0 ? items[i].weight : 1;
+										totalWeight += itemWeight;
+									}
+									if (totalWeight <= 0) return null;
+
+									var threshold = Math.random() * totalWeight;
+									for (var j = 0; j < items.length; j++) {
+										var currentWeight = typeof items[j].weight === 'number' && items[j].weight > 0 ? items[j].weight : 1;
+										threshold -= currentWeight;
+										if (threshold < 0) return items[j];
+									}
+
+									return items[items.length - 1] || null;
+								}
+
+								function applyAd(selectedAd) {
+									if (!selectedAd) {
+										adPanel.hidden = true;
+										return;
+									}
+
+									adLink.href = selectedAd.href;
+									adLink.dataset.adId = selectedAd.id || '';
+									adLink.rel = selectedAd.rel || 'sponsored noopener noreferrer';
+
+									if (selectedAd.kind === 'image') {
+										adMedia.hidden = false;
+										adText.hidden = true;
+										adImage.src = selectedAd.imageSrc;
+										adImage.alt = selectedAd.imageAlt || '';
+										adImage.width = selectedAd.imageWidth || 300;
+										adImage.height = selectedAd.imageHeight || 250;
+									} else {
+										adMedia.hidden = true;
+										adText.hidden = false;
+										adTitle.textContent = selectedAd.title;
+										adCopy.textContent = selectedAd.copy;
+										adCta.textContent = selectedAd.cta;
+									}
+
+									if (selectedAd.pixelSrc) {
+										adPixel.hidden = false;
+										adPixel.src = selectedAd.pixelSrc;
+									} else {
+										adPixel.hidden = true;
+										adPixel.removeAttribute('src');
+									}
+								}
+
+								function isValidAd(item) {
+									if (!item || typeof item.href !== 'string' || item.href.length === 0) return false;
+									if (item.kind === 'image') {
+										return typeof item.imageSrc === 'string' && item.imageSrc.length > 0;
+									}
+									return typeof item.id === 'string' &&
+										typeof item.title === 'string' &&
+										typeof item.copy === 'string' &&
+										typeof item.cta === 'string';
+								}
+
+								fetch('data/ads.json?ts=' + Date.now(), { cache: 'no-store' })
+									.then(function(response) {
+										if (!response.ok) throw new Error('HTTP ' + response.status);
+										return response.json();
+									})
+									.then(function(data) {
+										var ads = Array.isArray(data.ads) ? data.ads.filter(isValidAd) : [];
+										applyAd(pickWeighted(ads));
+									})
+									.catch(function() {
+										adPanel.hidden = true;
+									});
+							})();
+						</script>
 					<script>
 						(function() {
 							var postsContainer = document.getElementById('yasero-posts');

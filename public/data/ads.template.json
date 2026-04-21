@@ -1,0 +1,32 @@
+{
+  "notes": [
+    "Use `weight` to control how often an ad is shown relative to others.",
+    "Set `kind` to `image` for affiliate banner tags like A8, or `text` for a card-style sponsor link.",
+    "Keep `href` as the click-through URL from the affiliate network.",
+    "For A8/image ads, put the banner URL in `imageSrc` and the 1x1 tracking URL in `pixelSrc`."
+  ],
+  "ads": [
+    {
+      "id": "a8-example-banner",
+      "kind": "image",
+      "href": "https://px.a8.net/svt/ejp?...",
+      "rel": "nofollow sponsored noopener noreferrer",
+      "imageSrc": "https://www23.a8.net/svt/bgt?...",
+      "imageAlt": "Banner ad label",
+      "imageWidth": 300,
+      "imageHeight": 250,
+      "pixelSrc": "https://www14.a8.net/0.gif?...",
+      "weight": 3
+    },
+    {
+      "id": "text-example",
+      "kind": "text",
+      "href": "https://example.com/campaign",
+      "rel": "sponsored noopener noreferrer",
+      "title": "Example sponsor title",
+      "copy": "Short description for a card-style sponsor link.",
+      "cta": "Learn More",
+      "weight": 1
+    }
+  ]
+}

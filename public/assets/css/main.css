@@ -948,6 +948,99 @@
 
 /* Footer */
 
+	#ad-panel {
+		width: 27em;
+		max-width: 100%;
+		margin-top: 1.5em;
+		text-align: left;
+		color: rgba(255, 255, 255, 0.8);
+	}
+
+		#ad-panel .eyebrow {
+			margin: 0 0 0.6em 0;
+			font-size: 0.65em;
+			letter-spacing: 0.22em;
+			text-transform: uppercase;
+			text-align: center;
+		}
+
+		#ad-panel .ad-card {
+			display: block;
+			padding: 1.2em 1.25em;
+			border: solid 1px rgba(255, 255, 255, 0.18);
+			border-radius: 4px;
+			background: rgba(255, 255, 255, 0.08);
+			color: inherit;
+			text-decoration: none;
+			box-shadow: 0 1.25em 2.5em rgba(0, 0, 0, 0.12);
+			-moz-transition: transform 0.2s ease, background-color 0.2s ease, border-color 0.2s ease;
+			-webkit-transition: transform 0.2s ease, background-color 0.2s ease, border-color 0.2s ease;
+			-ms-transition: transform 0.2s ease, background-color 0.2s ease, border-color 0.2s ease;
+			transition: transform 0.2s ease, background-color 0.2s ease, border-color 0.2s ease;
+		}
+
+			#ad-panel .ad-card:hover {
+				background: rgba(255, 255, 255, 0.12);
+				border-color: rgba(255, 255, 255, 0.35);
+				-moz-transform: translateY(-2px);
+				-webkit-transform: translateY(-2px);
+				-ms-transform: translateY(-2px);
+				transform: translateY(-2px);
+			}
+
+		#ad-panel .ad-media {
+			text-align: center;
+		}
+
+			#ad-panel .ad-media img {
+				display: block;
+				width: 100%;
+				height: auto;
+				max-width: 300px;
+				margin: 0 auto;
+				border-radius: 3px;
+			}
+
+		#ad-panel .ad-text[hidden],
+		#ad-panel .ad-media[hidden] {
+			display: none;
+		}
+
+		#ad-panel .ad-title {
+			margin: 0 0 0.35em 0;
+			font-size: 1.05em;
+			font-weight: 600;
+			color: #ffffff;
+		}
+
+		#ad-panel .ad-copy {
+			margin: 0;
+			font-size: 0.85em;
+			line-height: 1.6;
+		}
+
+		#ad-panel .ad-cta {
+			display: inline-block;
+			margin-top: 0.9em;
+			font-size: 0.7em;
+			font-weight: 600;
+			letter-spacing: 0.18em;
+			text-transform: uppercase;
+			color: #ff7496;
+		}
+
+		@media screen and (max-width: 480px) {
+
+			#ad-panel {
+				width: 100%;
+			}
+
+				#ad-panel .ad-card {
+					padding: 1em;
+				}
+
+		}
+
 	#footer {
 		-moz-align-self: -moz-flex-end;
 		-webkit-align-self: -webkit-flex-end;

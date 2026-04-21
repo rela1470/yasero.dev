@@ -1,0 +1,40 @@
+{
+  "ads": [
+    {
+      "id": "a8-rizap",
+      "kind": "image",
+      "href": "https://px.a8.net/svt/ejp?a8mat=4B1PLN+DLEF4I+3D3Q+6GC75",
+      "rel": "nofollow sponsored noopener noreferrer",
+      "imageSrc": "https://www23.a8.net/svt/bgt?aid=260420315822&wid=005&eno=01&mid=s00000015695001084000&mc=1",
+      "imageAlt": "RIZAP",
+      "imageWidth": 300,
+      "imageHeight": 250,
+      "pixelSrc": "https://www14.a8.net/0.gif?a8mat=4B1PLN+DLEF4I+3D3Q+6GC75",
+      "weight": 3
+    },
+    {
+      "id": "a8-yamanaka-1",
+      "kind": "image",
+      "href": "https://px.a8.net/svt/ejp?a8mat=4B1PLN+DOZ0R6+5MTE+5ZMCH",
+      "rel": "nofollow sponsored noopener noreferrer",
+      "imageSrc": "https://www23.a8.net/svt/bgt?aid=260420315828&wid=005&eno=01&mid=s00000026285001006000&mc=1",
+      "imageAlt": "RIZAP",
+      "imageWidth": 300,
+      "imageHeight": 250,
+      "pixelSrc": "https://www11.a8.net/0.gif?a8mat=4B1PLN+DOZ0R6+5MTE+5ZMCH",
+      "weight": 3
+    },
+    {
+      "id": "a8-yamanaka-2",
+      "kind": "image",
+      "href": "https://px.a8.net/svt/ejp?a8mat=4B1PLN+DOZ0R6+5MTE+60OXD",
+      "rel": "nofollow sponsored noopener noreferrer",
+      "imageSrc": "https://www27.a8.net/svt/bgt?aid=260420315828&wid=005&eno=01&mid=s00000026285001011000&mc=1",
+      "imageAlt": "RIZAP",
+      "imageWidth": 300,
+      "imageHeight": 250,
+      "pixelSrc": "https://www14.a8.net/0.gif?a8mat=4B1PLN+DOZ0R6+5MTE+60OXD",
+      "weight": 3
+    }
+  ]
+}
