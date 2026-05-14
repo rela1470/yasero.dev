@@ -23,6 +23,7 @@ MyFitnessPal の代わりに、GitHub Actions が eufy の非公開 API から�
 補足:
 - ワークフローは 24 時間ごとに定期実行されます（UTC 00:15）。
 - 取得前に公開中 `weight.json` を復元するため、取得失敗時は前回成功値を維持できます。
+- `measuredAt` は eufy の履歴レコード `scale_data.weight` と同じレコードにある `update_time` を優先して使用します。採用したフィールド名は `measuredAtSource` に出力されます。
 - API 仕様変更が起きる可能性があるため、失敗時は Actions ログを確認してください。
 
 ## #yasero_dev 投稿URLの運用（Git履歴を増やさない）

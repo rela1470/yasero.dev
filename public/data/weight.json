@@ -4,6 +4,7 @@
   "targetWeightKg": 55.0,
   "initialWeightKg": null,
   "measuredAt": null,
+  "measuredAtSource": null,
   "updatedAt": null,
   "status": "unconfigured"
 }

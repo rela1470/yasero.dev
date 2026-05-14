@@ -106,21 +106,13 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 								return date.toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' });
 							}
 
-							function formatMeasuredTime(measuredIso, updatedIso) {
-								var measured = formatTime(measuredIso);
-								if (measured !== 'unknown') return measured;
-								var updated = formatTime(updatedIso);
-								if (updated !== 'unknown') return updated + ' (fallback)';
-								return 'unknown';
+							function setFallback(message) {
+								document.getElementById('weight-value').textContent = '--.- kg';
+								document.getElementById('weight-goal').textContent = 'Target: --.- kg / Remaining: --.- kg';
+								document.getElementById('weight-progress-label').textContent = 'Progress: --%';
+								document.getElementById('weight-progress-bar').style.width = '0%';
+								document.getElementById('weight-meta').textContent = message;
 							}
-
-						function setFallback(message) {
-							document.getElementById('weight-value').textContent = '--.- kg';
-							document.getElementById('weight-goal').textContent = 'Target: --.- kg / Remaining: --.- kg';
-							document.getElementById('weight-progress-label').textContent = 'Progress: --%';
-							document.getElementById('weight-progress-bar').style.width = '0%';
-							document.getElementById('weight-meta').textContent = message;
-						}
 
 						function toNumber(value) {
 							if (typeof value === 'number' && !isNaN(value)) return value;
@@ -162,7 +154,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 										document.getElementById('weight-progress-label').textContent = 'Progress: ' + progress.toFixed(1) + '%';
 										document.getElementById('weight-progress-bar').style.width = progress.toFixed(1) + '%';
 									}
-									var measured = formatMeasuredTime(data.measuredAt, data.updatedAt);
+									var measured = formatTime(data.measuredAt);
 									var updated = formatTime(data.updatedAt);
 									document.getElementById('weight-meta').textContent = 'Measured: ' + measured + ' / Updated: ' + updated;
 								})

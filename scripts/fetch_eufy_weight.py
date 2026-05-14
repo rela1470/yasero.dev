@@ -10,12 +10,14 @@ import sys
 import urllib.error
 import urllib.parse
 import urllib.request
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 API_BASE = os.getenv("EUFY_API_BASE", "https://home-api.eufylife.com/v1").rstrip("/")
 LOGIN_PATH = os.getenv("EUFY_LOGIN_PATH", "/user/v2/email/login")
 DEVICES_PATH = os.getenv("EUFY_DEVICES_PATH", "/device/")
+HISTORY_PATH = os.getenv("EUFY_HISTORY_PATH", "/device/data")
 DATA_PATH_TEMPLATE = os.getenv("EUFY_DATA_PATH_TEMPLATE", "/device/{device_id}/data")
 CATEGORY = os.getenv("EUFY_CATEGORY", "Health")
 CLIENT_ID = os.getenv("EUFY_CLIENT_ID")
@@ -24,6 +26,35 @@ OUT_PATH = Path(os.getenv("WEIGHT_OUTPUT_PATH", "public/data/weight.json"))
 FORCE_DEVICE_ID = os.getenv("EUFY_DEVICE_ID")
 TIMEOUT = int(os.getenv("EUFY_TIMEOUT_SECONDS", "20"))
 TARGET_WEIGHT_KG_RAW = os.getenv("TARGET_WEIGHT_KG")
+
+MEASURED_TIME_KEYS = (
+    "update_time",
+    "updateTime",
+    "measure_time",
+    "measureTime",
+    "measured_at",
+    "measuredAt",
+    "measurement_time",
+    "measurementTime",
+    "timestamp",
+    "time",
+    "date",
+)
+FALLBACK_TIME_KEYS = (
+    "create_time",
+    "createTime",
+    "created_at",
+    "createdAt",
+)
+WEIGHT_KEYS = ("weight", "weight_kg", "weightKg", "body_weight", "bodyWeight")
+UNIT_KEYS = ("unit", "weight_unit", "weightUnit")
+
+
+@dataclass(frozen=True)
+class WeightReading:
+    weight_kg: float
+    measured_at: str | None
+    measured_at_source: str | None
 
 
 def _request_json(method: str, path: str, headers: dict[str, str] | None = None, payload: dict[str, Any] | None = None) -> Any:
@@ -72,6 +103,28 @@ def _extract_token(login_json: Any) -> str:
     raise RuntimeError("Login response did not include an access token")
 
 
+def _extract_user_id(login_json: Any) -> str | None:
+    candidates: list[Any] = []
+    if isinstance(login_json, dict):
+        candidates.extend([
+            login_json.get("user_id"),
+            login_json.get("uid"),
+            login_json.get("id"),
+        ])
+        data = login_json.get("data")
+        if isinstance(data, dict):
+            candidates.extend([
+                data.get("user_id"),
+                data.get("uid"),
+                data.get("id"),
+            ])
+
+    for user_id in candidates:
+        if isinstance(user_id, (str, int)) and str(user_id):
+            return str(user_id)
+    return None
+
+
 def _iter_dicts(value: Any):
     if isinstance(value, dict):
         yield value
@@ -87,6 +140,8 @@ def _parse_time(value: Any) -> str | None:
         return None
     if isinstance(value, (int, float)):
         ts = float(value)
+        if ts <= 0:
+            return None
         if ts > 10_000_000_000:
             ts /= 1000.0
         return dt.datetime.fromtimestamp(ts, dt.timezone.utc).isoformat().replace("+00:00", "Z")
@@ -135,6 +190,82 @@ def _guess_scaled_kg(raw_weight: float) -> float:
     return raw_weight
 
 
+def _extract_numeric(node: dict[str, Any], keys: tuple[str, ...]) -> float | None:
+    for key in keys:
+        value = node.get(key)
+        if isinstance(value, (int, float)):
+            return float(value)
+        if isinstance(value, str):
+            try:
+                return float(value)
+            except ValueError:
+                pass
+    return None
+
+
+def _extract_unit(node: dict[str, Any]) -> str | None:
+    for key in UNIT_KEYS:
+        val = node.get(key)
+        if isinstance(val, str) and val.strip():
+            return val
+    return None
+
+
+def _pick_time(node: dict[str, Any], keys: tuple[str, ...]) -> tuple[str | None, str | None]:
+    for key in keys:
+        time_iso = _parse_time(node.get(key))
+        if time_iso:
+            return time_iso, key
+    return None, None
+
+
+def _record_device_id(record: dict[str, Any]) -> str | None:
+    for key in ("device_id", "deviceId", "id"):
+        value = record.get(key)
+        if isinstance(value, (str, int)) and str(value):
+            return str(value)
+    return None
+
+
+def _iter_scale_data_readings(data_json: Any):
+    """Yield Eufy /device/data records where weight lives under scale_data."""
+    for record in _iter_dicts(data_json):
+        scale_data = record.get("scale_data")
+        if not isinstance(scale_data, dict):
+            continue
+
+        if FORCE_DEVICE_ID and _record_device_id(record) != FORCE_DEVICE_ID:
+            continue
+
+        raw_weight = _extract_numeric(scale_data, WEIGHT_KEYS)
+        if raw_weight is None:
+            continue
+
+        time_iso, time_key = _pick_time(record, MEASURED_TIME_KEYS)
+        if not time_iso:
+            time_iso, time_key = _pick_time(scale_data, MEASURED_TIME_KEYS)
+        if not time_iso:
+            time_iso, time_key = _pick_time(record, FALLBACK_TIME_KEYS)
+        if not time_iso:
+            time_iso, time_key = _pick_time(scale_data, FALLBACK_TIME_KEYS)
+
+        # Eufy's cloud history represents scale_data.weight as a scaled integer
+        # such as 717 for 71.7kg.
+        yield WeightReading(
+            weight_kg=_guess_scaled_kg(raw_weight),
+            measured_at=time_iso,
+            measured_at_source=time_key,
+        )
+
+
+def _choose_latest(readings: list[WeightReading]) -> WeightReading:
+    best = readings[0]
+    for reading in readings[1:]:
+        if reading.measured_at and (best.measured_at is None or reading.measured_at > best.measured_at):
+            best = reading
+    return best
+
+
 def _pick_scale_device(devices_json: Any) -> dict[str, Any]:
     devices: list[dict[str, Any]] = []
     if isinstance(devices_json, list):
@@ -172,58 +303,41 @@ def _pick_scale_device(devices_json: Any) -> dict[str, Any]:
     return scored[0][1]
 
 
-def _extract_latest_weight(data_json: Any) -> tuple[float, str | None]:
-    best_weight: float | None = None
-    best_time: str | None = None
+def _extract_latest_weight(data_json: Any) -> WeightReading:
+    scale_data_readings = list(_iter_scale_data_readings(data_json))
+    if scale_data_readings:
+        return _choose_latest(scale_data_readings)
 
-    time_keys = ("time", "timestamp", "measureTime", "measuredAt", "created_at", "createdAt", "date")
-    weight_keys = ("weight", "weight_kg", "weightKg", "body_weight", "bodyWeight")
-    unit_keys = ("unit", "weight_unit", "weightUnit")
+    best: WeightReading | None = None
 
     for node in _iter_dicts(data_json):
-        found_weight = None
-        for key in weight_keys:
-            value = node.get(key)
-            if isinstance(value, (int, float)):
-                found_weight = float(value)
-                break
-            if isinstance(value, str):
-                try:
-                    found_weight = float(value)
-                    break
-                except ValueError:
-                    pass
+        found_weight = _extract_numeric(node, WEIGHT_KEYS)
 
         if found_weight is None:
             continue
 
-        unit = None
-        for key in unit_keys:
-            val = node.get(key)
-            if isinstance(val, str) and val.strip():
-                unit = val
-                break
-
-        time_iso = None
-        for key in time_keys:
-            time_iso = _parse_time(node.get(key))
-            if time_iso:
-                break
+        unit = _extract_unit(node)
+        time_iso, time_key = _pick_time(node, MEASURED_TIME_KEYS)
+        if not time_iso:
+            time_iso, time_key = _pick_time(node, FALLBACK_TIME_KEYS)
 
         weight_kg = _to_kg(found_weight, unit)
-        if best_weight is None:
-            best_weight = weight_kg
-            best_time = time_iso
+        reading = WeightReading(
+            weight_kg=weight_kg,
+            measured_at=time_iso,
+            measured_at_source=time_key,
+        )
+        if best is None:
+            best = reading
             continue
 
-        if time_iso and (best_time is None or time_iso > best_time):
-            best_weight = weight_kg
-            best_time = time_iso
+        if reading.measured_at and (best.measured_at is None or reading.measured_at > best.measured_at):
+            best = reading
 
-    if best_weight is None:
+    if best is None:
         raise RuntimeError("Could not find a weight value in device data")
 
-    return best_weight, best_time
+    return best
 
 
 def _read_previous_snapshot(path: Path) -> dict[str, Any]:
@@ -281,34 +395,42 @@ def main() -> int:
 
     login_json = _request_json("POST", LOGIN_PATH, headers=login_headers, payload=login_payload)
     token = _extract_token(login_json)
+    user_id = _extract_user_id(login_json)
 
     api_headers = {
         "category": CATEGORY,
         "token": token,
     }
+    if user_id:
+        api_headers["uid"] = user_id
 
-    devices_json = _request_json("GET", DEVICES_PATH, headers=api_headers)
-    device = _pick_scale_device(devices_json)
-    device_id = device.get("id") or device.get("device_id") or device.get("deviceId")
-    if not device_id:
-        raise RuntimeError("Selected device does not include an id")
+    try:
+        data_json = _request_json("GET", HISTORY_PATH, headers=api_headers)
+        reading = _extract_latest_weight(data_json)
+    except Exception:
+        devices_json = _request_json("GET", DEVICES_PATH, headers=api_headers)
+        device = _pick_scale_device(devices_json)
+        device_id = device.get("id") or device.get("device_id") or device.get("deviceId")
+        if not device_id:
+            raise RuntimeError("Selected device does not include an id")
 
-    data_path = DATA_PATH_TEMPLATE.format(device_id=urllib.parse.quote(str(device_id), safe=""))
-    data_json = _request_json("GET", data_path, headers=api_headers)
+        data_path = DATA_PATH_TEMPLATE.format(device_id=urllib.parse.quote(str(device_id), safe=""))
+        data_json = _request_json("GET", data_path, headers=api_headers)
+        reading = _extract_latest_weight(data_json)
 
-    weight_kg, measured_at = _extract_latest_weight(data_json)
     now_iso = dt.datetime.now(dt.timezone.utc).isoformat().replace("+00:00", "Z")
     previous = _read_previous_snapshot(OUT_PATH)
     previous_initial = _to_float(previous.get("initialWeightKg"))
-    initial_weight_kg = previous_initial if previous_initial is not None else weight_kg
+    initial_weight_kg = previous_initial if previous_initial is not None else reading.weight_kg
     target_weight_kg = _get_target_weight_kg()
 
     payload = {
         "source": "eufy",
-        "weightKg": round(weight_kg, 1),
+        "weightKg": round(reading.weight_kg, 1),
         "targetWeightKg": round(target_weight_kg, 1),
         "initialWeightKg": round(initial_weight_kg, 1),
-        "measuredAt": measured_at,
+        "measuredAt": reading.measured_at,
+        "measuredAtSource": reading.measured_at_source,
         "updatedAt": now_iso,
         "status": "ok",
     }
@@ -318,7 +440,9 @@ def main() -> int:
     tmp_path.write_text(json.dumps(payload, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
     tmp_path.replace(OUT_PATH)
 
-    print(f"Wrote {OUT_PATH} with {payload['weightKg']} kg")
+    measured_at = payload["measuredAt"] or "unknown"
+    measured_at_source = payload["measuredAtSource"] or "unknown"
+    print(f"Wrote {OUT_PATH} with {payload['weightKg']} kg measuredAt={measured_at} source={measured_at_source}")
     return 0
 
 
